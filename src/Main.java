@@ -1,160 +1,101 @@
-import java.io.BufferedReader; // Зчитуємо вхідні записи рядок за рядком.
-import java.io.BufferedWriter; // Буферизований запис відсортованого результату.
-import java.io.IOException; // Представляє помилки файлового вводу-виводу.
-import java.nio.charset.StandardCharsets; // Всі текстові файли мають кодування UTF-8.
-import java.nio.file.Files; // Відкриття текстових потоків.
-import java.nio.file.Path; // Робота з користувацькими шляхами.
-import java.util.ArrayList; // Контейнер для записів функцій.
-import java.util.Collections; // Collections.sort викликає Comparable або Comparator.
-import java.util.HashSet; // Зберігаємо лише унікальні цілі числа.
-// class описує тип об’єктів; new створює конкретний об’єкт і викликає його конструктор. public робить клас
-// доступним ззовні; final у заголовку класу, якщо він є, забороняє створювати підкласи, але сам по собі не робить
-// поля незмінними.
-public class Main { // Лабораторна 5 використовує абстрактні функції з лабораторної 3, завдання 2.
-    // throws у заголовку попереджає викликача про перевірюваний виняток: Java вимагає його перехопити або теж
-    // оголосити throws. Це не команда кинути помилку — її кидає throw усередині; у Python такої обов’язкової
-    // декларації немає.
-    // static означає, що метод належить класу: його можна викликати без створення об’єкта. public дозволяє виклик
-    // з інших класів, private обмежує використання цим класом; тип перед назвою задає результат, а void означає
-    // відсутність значення для повернення.
-    public static ArrayList<Function> load(Path file, boolean ellipse) throws IOException { // Кожен тип читається зі свого файлу формату a b.
-        // ArrayList — список, що може змінювати довжину, найближчий тут до Python list. Тип у <...> обмежує
-        // допустимі елементи під час компіляції; <> після new означає «вивести цей тип із контексту». Конструктор
-        // із колекцією копіює список посилань, а не самі об’єкти.
-        ArrayList<Function> result = new ArrayList<>(); // Створюємо змінний список записів.
-        // try (...) автоматично закриє вказаний ресурс після блоку, навіть при помилці чи return. Це Java-аналог
-        // with open(...) у Python; для writer закриття також виводить залишок буфера у файл.
-        // Files відкриває текстовий потік, а буфер зменшує кількість дрібних звернень до диска. UTF_8 явно задає
-        // кодування, щоб український текст однаково читався на різних машинах; помилка доступу передається як
-        // IOException.
-        try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) { // Автоматично закриваємо вхідний файл.
-            String line; // Поточний рядок файлу.
-            int number = 0; // Номер рядка потрібен для змістовної помилки.
-            // readLine() повертає рядок без символів його завершення; null означає кінець потоку, а "" — справжній
-            // порожній рядок. Тому EOF перевіряємо через null, не через порожній текст; це відрізняється від
-            // Python file.readline(), де EOF — порожній рядок.
-            // Присвоєння всередині дужок спочатку зчитує наступне значення, а зовнішня умова перевіряє його. Так
-            // за кожну ітерацію читаємо рівно один раз; у сучасному Python близький запис використовував би :=.
-            while ((line = reader.readLine()) != null) { // Читаємо всі рядки до кінця файлу.
-                number++; // Рахуємо також порожні рядки.
-                // isBlank() істинний для порожнього рядка або рядка лише з пробільних символів за правилами Java.
-                // Це перевірка змістовного введення; isEmpty() перевірив би тільки нульову довжину.
-                if (line.isBlank()) continue; // Порожні рядки не створюють записів.
-                // trim() повертає рядок без звичайних крайніх пробілів і символів із кодами до U+0020;
-                // оригінальний String не змінюється. Це близько до strip() у Python, але набір прибраних символів
-                // не цілком однаковий.
-                // На відміну від Python str.split, Java String.split приймає регулярний вираз. У рядку Java
-                // зворотну риску треба подвоїти: "\\s+" передає шаблону правило «один або більше пробільних
-                // символів», а "\\." — буквальну крапку, не будь-який символ.
-                String[] parts = line.trim().split("\\s+"); // Дозволяємо довільну кількість пробілів між параметрами.
-                // .length — незмінне поле масиву, тому пишеться без дужок, аналог len(a). Останній індекс — length
-                // - 1. Не плутати: для String потрібен метод length(), а для ArrayList — size().
-                // throw — аналог raise у Python: негайно припиняємо звичайний хід методу й передаємо об’єкт
-                // помилки найближчому відповідному catch. new створює виняток, а текст конструктора пояснює
-                // причину користувачу.
-                if (parts.length != 2) throw new IOException("Рядок " + number + ": потрібно два числа a b."); // Виявляємо неповні або зайві дані.
-                try { // Окремо обробляємо неправильні числа та півосі.
-                    // Double.parseDouble перетворює рядок у 64-бітне дробове число double, близький аналог
-                    // float(text) у Python. Десятковий роздільник має бути крапкою; replace коми, де він є, робить
-                    // введення зручнішим.
-                    double a = Double.parseDouble(parts[0]); // Перша піввісь.
-                    double b = Double.parseDouble(parts[1]); // Друга піввісь.
-                    // Умова ? значення_якщо_так : значення_якщо_ні — короткий вибір одного з двох значень, аналог
-                    // a if condition else b у Python. Обчислюється лише вибрана частина, тому інший конструктор чи
-                    // виклик тут не виконується.
-                    result.add(ellipse ? new Ellipse(a, b) : new Hyperbola(a, b)); // Файл має один заздалегідь вибраний тип записів.
-                // catch — аналог except у Python: ця гілка виконується лише після відповідної помилки в try. e —
-                // об’єкт винятку, getMessage() дає його пояснення; вертикальна риска між типами дозволяє одним
-                // блоком обробити кілька видів помилок.
-                } catch (IllegalArgumentException e) { throw new IOException("Рядок " + number + ": " + e.getMessage(), e); } // Додаємо номер рядка до початкової причини.
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+public class Main {
+    // static — виклик без об’єкта; public — доступ ззовні, private — лише в класі; void — без результату.
+    // throws оголошує перевірюваний виняток: викликач мусить перехопити його або теж оголосити.
+    public static ArrayList<Function> load(Path file, boolean ellipse) throws IOException {
+        // ArrayList<T> — змінний список елементів типу T; <> після new виводить тип із контексту.
+        ArrayList<Function> result = new ArrayList<>();
+        // try (ресурс) автоматично закриває його після блоку, зокрема при помилці.
+        try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+            String line;
+            int number = 0;
+            // readLine повертає null при EOF; порожній рядок "" означає прочитаний порожній рядок.
+            // Присвоєння в умові: спочатку читаємо значення, потім перевіряємо його.
+            while ((line = reader.readLine()) != null) {
+                number++;
+                if (line.isBlank()) continue;
+                // String.split приймає regex: "\\s+" — пробіли, "\\." — крапка; -1 зберігає кінцеві порожні частини.
+                String[] parts = line.trim().split("\\s+");
+                // .length — довжина масиву без дужок; для String — length(), для колекції — size().
+                if (parts.length != 2) throw new IOException("Рядок " + number + ": потрібно два числа a b.");
+                try {
+                    // parseInt/parseDouble перетворюють текст на число; помилка формату — NumberFormatException.
+                    double a = Double.parseDouble(parts[0]);
+                    double b = Double.parseDouble(parts[1]);
+                    // умова ? a : b — вибір значення: a, якщо true, інакше b.
+                    result.add(ellipse ? new Ellipse(a, b) : new Hyperbola(a, b));
+                } catch (IllegalArgumentException e) { throw new IOException("Рядок " + number + ": " + e.getMessage(), e); }
             }
         }
-        return result; // Повертаємо всі прочитані об'єкти.
+        return result;
     }
-    public static HashSet<Integer> union(HashSet<Integer> a, HashSet<Integer> b) { // Об'єднання не змінює вхідних множин.
-        // HashSet — множина унікальних значень, схожа на Python set; порядок перебору не гарантований. <Integer>
-        // потрібен замість <int>, бо колекції Java містять об’єкти: упаковка int в Integer відбувається
-        // автоматично.
-        HashSet<Integer> result = new HashSet<>(a); // Копіюємо першу множину.
-        // addAll додає всі елементи іншої колекції: для списку це схоже на extend, для множини — на update у
-        // Python. У множині повтори зникають, у списку — залишаються.
-        result.addAll(b); // Додаємо елементи другої; дублікати HashSet відкидає.
-        return result; // Повертаємо нову множину.
+    public static HashSet<Integer> union(HashSet<Integer> a, HashSet<Integer> b) {
+        // HashSet<Integer> — множина; Integer потрібен замість int, упаковка відбувається автоматично.
+        HashSet<Integer> result = new HashSet<>(a);
+        result.addAll(b);
+        return result;
     }
-    public static HashSet<Integer> intersection(HashSet<Integer> a, HashSet<Integer> b) { // Перетин також є незалежною множиною.
-        HashSet<Integer> result = new HashSet<>(a); // Створюємо копію, щоб не змінити a.
-        // retainAll змінює множину-одержувач: залишає тільки елементи, що є в іншій колекції. Це близько до
-        // set.intersection_update у Python; попереднє створення копії захищає вхідні дані від зміни.
-        result.retainAll(b); // Зберігаємо лише спільні елементи.
-        return result; // Порядок перебору HashSet не гарантується.
+    public static HashSet<Integer> intersection(HashSet<Integer> a, HashSet<Integer> b) {
+        HashSet<Integer> result = new HashSet<>(a);
+        result.retainAll(b);
+        return result;
     }
-    private static HashSet<Integer> set(String prompt) { // Читаємо набір цілих чисел одним рядком.
-        HashSet<Integer> result = new HashSet<>(); // Порожній рядок означатиме порожню множину.
-        String line = Input.text(prompt).trim(); // Видаляємо пробіли на краях.
-        // Це for-each: двокрапка означає «взяти по черзі кожен елемент», як for item in items у Python. Ліворуч
-        // указано тип елемента; сам індекс тут не потрібен, а для об’єктів змінна отримує посилання, не копію.
-        // Integer.parseInt перетворює текст у примітивний int, подібно до int(text) у Python. Некоректний текст
-        // або число за межами -2147483648..2147483647 спричиняє NumberFormatException; тип змінної в Java при
-        // цьому залишається фіксованим.
-        if (!line.isEmpty()) for (String part : line.split("\\s+")) result.add(Integer.parseInt(part)); // Повторні числа зберігаються один раз.
-        return result; // Повертаємо побудовану множину.
+    private static HashSet<Integer> set(String prompt) {
+        HashSet<Integer> result = new HashSet<>();
+        String line = Input.text(prompt).trim();
+        // for (Тип елемент : колекція) — перебір елементів без індексу.
+        if (!line.isEmpty()) for (String part : line.split("\\s+")) result.add(Integer.parseInt(part));
+        return result;
     }
-    // public дозволяє Java знайти точку входу; static означає виклик без new Main(); void означає, що метод не
-    // повертає значення. String[] args — масив аргументів запуску без назви програми (на відміну від Python
-    // sys.argv). Тут починається виконання, приблизно як у блоці if __name__ == "__main__" у Python.
-    public static void main(String[] args) { // Точка входу для роботи з колекціями.
-        try { // Помилки файлів і даних мають зрозуміле повідомлення.
-            int task = Input.integer("Завдання (1 - колекції функцій, 2 - множини): ", 1, 2); // Вибір задачі.
-            if (task == 2) { // Виконуємо операції над множинами цілих чисел.
-                HashSet<Integer> a = set("Множина A (числа через пробіл): "); // Читаємо першу множину.
-                HashSet<Integer> b = set("Множина B: "); // Читаємо другу множину.
-                // TreeSet прибирає повтори та зберігає елементи впорядкованими. Для рядків порядок природний, за
-                // UTF-16, а не за правилами українського словника; для цілих — числовий. У Python для схожого
-                // результату використовують sorted(set(values)).
-                System.out.println("Перетин: " + new java.util.TreeSet<>(intersection(a, b))); // TreeSet впорядковує лише вивід, обчислення виконано через HashSet.
-                System.out.println("Об'єднання: " + new java.util.TreeSet<>(union(a, b))); // Друкуємо всі унікальні елементи.
-                return; // Файлова частина в цьому режимі не виконується.
+    // main — точка входу; String[] args містить аргументи запуску без назви програми.
+    public static void main(String[] args) {
+        try {
+            int task = Input.integer("Завдання (1 - колекції функцій, 2 - множини): ", 1, 2);
+            if (task == 2) {
+                HashSet<Integer> a = set("Множина A (числа через пробіл): ");
+                HashSet<Integer> b = set("Множина B: ");
+                // TreeSet — множина з упорядкованим перебором.
+                System.out.println("Перетин: " + new java.util.TreeSet<>(intersection(a, b)));
+                System.out.println("Об'єднання: " + new java.util.TreeSet<>(union(a, b)));
+                return;
             }
-            ArrayList<Ellipse> ellipses = new ArrayList<>(); // Окрема колекція першого похідного типу.
-            ArrayList<Hyperbola> hyperbolas = new ArrayList<>(); // Окрема колекція другого похідного типу.
-            // Це приведення посилання до конкретного підкласу: новий об’єкт не створюється. Тут load із
-            // відповідним прапорцем створює тільки потрібний тип; при іншому фактичному типі Java кинула б
-            // ClassCastException.
-            // Path — об’єкт шляху, приблизно pathlib.Path у Python. Path.of тільки розбирає запис шляху, а не
-            // створює файл; відносний шлях рахується від робочої папки запущеної програми.
-            for (Function f : load(Path.of(Input.text("Файл еліпсів (data/ellipses.txt): ")), true)) ellipses.add((Ellipse) f); // Тип безпечний, оскільки load з true створює лише Ellipse.
-            for (Function f : load(Path.of(Input.text("Файл гіпербол (data/hyperbolas.txt): ")), false)) hyperbolas.add((Hyperbola) f); // Другий файл містить лише Hyperbola.
-            System.out.println("Прочитано: " + ellipses + "\n" + hyperbolas); // Показуємо початковий порядок файлів.
-            // Collections.sort змінює порядок самого списку, як list.sort() у Python. Без другого аргументу
-            // викликається compareTo елементів (Comparable); з переданим Comparator використовується його compare.
-            // Рішення про порядок задає знак результату порівняння.
-            Collections.sort(ellipses); // Використовуємо Ellipse.compareTo.
-            Collections.sort(hyperbolas); // Використовуємо Hyperbola.compareTo.
-            System.out.println("Відсортовано: " + ellipses + "\n" + hyperbolas); // Показуємо результат природного сортування.
-            ellipses.add(new Ellipse(Input.real("Новий еліпс a: "), Input.real("b: "))); // Додаємо один введений запис першого типу.
-            hyperbolas.add(new Hyperbola(Input.real("Нова гіпербола a: "), Input.real("b: "))); // Додаємо один введений запис другого типу.
-            Collections.sort(ellipses); // Повторне сортування після додавання.
-            Collections.sort(hyperbolas); // Новий запис займає правильне місце.
-            System.out.println("Після додавання: " + ellipses + "\n" + hyperbolas); // Демонструємо оновлені списки.
-            ArrayList<Function> all = new ArrayList<>(ellipses); // Спільна колекція оголошена через абстрактний тип.
-            all.addAll(hyperbolas); // Додаємо записи іншого підкласу.
-            Collections.sort(all, new FunctionComparator()); // Явно передаємо порівнювач різнорідних об'єктів.
-            Path output = Path.of(Input.text("Вихідний файл: ")); // Користувач обирає шлях для збереження.
-            // equalsIgnoreCase порівнює текст без урахування великих і малих літер. Це дає змогу прийняти «так» у
-            // різному регістрі без зміни збереженого рядка.
-            if (Files.exists(output) && !Input.text("Файл існує. Перезаписати? так/ні: ").equalsIgnoreCase("так")) return; // Існуючий файл змінюємо лише за явним вибором.
-            try (BufferedWriter writer = Files.newBufferedWriter(output, StandardCharsets.UTF_8)) { // Створюємо або погоджено перезаписуємо файл.
-                for (Function f : all) { // Обходимо всі записи в остаточному порядку.
-                    // getClass() повертає фактичний клас об’єкта, а getSimpleName() — його коротку назву без
-                    // пакета. Це близько до type(obj).__name__ у Python; так можна відрізнити Ellipse від
-                    // Hyperbola навіть через змінну базового типу.
-                    writer.write(f.getClass().getSimpleName() + " " + f.getA() + " " + f.getB()); // Зберігаємо тип, a і b в одному рядку.
-                    // write сам не додає перенесення рядка. newLine() записує стандартний роздільник рядків
-                    // поточної ОС, щоб наступний запис починався окремо.
-                    writer.newLine(); // Відділяємо записи переходом рядка.
+            ArrayList<Ellipse> ellipses = new ArrayList<>();
+            ArrayList<Hyperbola> hyperbolas = new ArrayList<>();
+            // Приведення посилання до підкласу; за невідповідного типу виникне ClassCastException.
+            for (Function f : load(Path.of(Input.text("Файл еліпсів (data/ellipses.txt): ")), true)) ellipses.add((Ellipse) f);
+            for (Function f : load(Path.of(Input.text("Файл гіпербол (data/hyperbolas.txt): ")), false)) hyperbolas.add((Hyperbola) f);
+            System.out.println("Прочитано: " + ellipses + "\n" + hyperbolas);
+            // sort без порівнювача викликає Comparable.compareTo; з порівнювачем — Comparator.compare.
+            Collections.sort(ellipses);
+            Collections.sort(hyperbolas);
+            System.out.println("Відсортовано: " + ellipses + "\n" + hyperbolas);
+            ellipses.add(new Ellipse(Input.real("Новий еліпс a: "), Input.real("b: ")));
+            hyperbolas.add(new Hyperbola(Input.real("Нова гіпербола a: "), Input.real("b: ")));
+            Collections.sort(ellipses);
+            Collections.sort(hyperbolas);
+            System.out.println("Після додавання: " + ellipses + "\n" + hyperbolas);
+            ArrayList<Function> all = new ArrayList<>(ellipses);
+            all.addAll(hyperbolas);
+            Collections.sort(all, new FunctionComparator());
+            Path output = Path.of(Input.text("Вихідний файл: "));
+            if (Files.exists(output) && !Input.text("Файл існує. Перезаписати? так/ні: ").equalsIgnoreCase("так")) return;
+            try (BufferedWriter writer = Files.newBufferedWriter(output, StandardCharsets.UTF_8)) {
+                for (Function f : all) {
+                    // getClass().getSimpleName() — коротка назва фактичного класу.
+                    writer.write(f.getClass().getSimpleName() + " " + f.getA() + " " + f.getB());
+                    writer.newLine();
                 }
             }
-            System.out.println("Спільний список: " + all + "\nЗбережено: " + output); // Показуємо кінцевий результат і місце запису.
-        } catch (IOException | RuntimeException e) { System.out.println("Помилка: " + e.getMessage()); } // Обробляємо формат, область значень та доступ до файлів.
+            System.out.println("Спільний список: " + all + "\nЗбережено: " + output);
+        // catch (Тип1 | Тип2 e) — один обробник для кількох типів винятків.
+        } catch (IOException | RuntimeException e) { System.out.println("Помилка: " + e.getMessage()); }
     }
 }

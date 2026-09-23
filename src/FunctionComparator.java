@@ -1,26 +1,15 @@
-import java.util.Comparator; // Comparator задає окремий порядок для різнорідних функцій.
-// class описує тип об’єктів; new створює конкретний об’єкт і викликає його конструктор. public робить клас
-// доступним ззовні; final у заголовку класу, якщо він є, забороняє створювати підкласи, але сам по собі не робить
-// поля незмінними.
-// implements означає обіцянку виконати контракт інтерфейсу. Comparable<T> вимагає compareTo для природного
-// порядку; Comparator<T> — окремий compare для зовнішнього правила сортування; FunctionLike — value і print для
-// кривої.
-public final class FunctionComparator implements Comparator<Function> { // Порівнювач працює з базовим абстрактним типом.
-    // @Override просить компілятор перевірити, що метод справді замінює успадкований метод або реалізує метод
-    // інтерфейсу. Якщо помилитися в назві чи параметрах, Java повідомить про це ще до запуску.
-    @Override public int compare(Function left, Function right) { // Сортуємо спочатку за типом, потім за a і b.
-        // getClass() повертає фактичний клас об’єкта, а getSimpleName() — його коротку назву без пакета. Це
-        // близько до type(obj).__name__ у Python; так можна відрізнити Ellipse від Hyperbola навіть через змінну
-        // базового типу.
-        int type = left.getClass().getSimpleName().compareTo(right.getClass().getSimpleName()); // Назви Ellipse і Hyperbola визначають порядок груп.
-        if (type != 0) return type; // Якщо типи різні, додаткові параметри вже не потрібні.
-        // Double.compare(a, b) дає від’ємне число, 0 або додатне число залежно від порядку a і b. Для сортування
-        // важливий знак; це безпечніше за (int)(a-b), бо невелика різниця не загубиться після відкидання дробової
-        // частини.
-        int axis = Double.compare(left.getA(), right.getA()); // Усередині типу порівнюємо першу піввісь.
-        // Умова ? значення_якщо_так : значення_якщо_ні — короткий вибір одного з двох значень, аналог a if
-        // condition else b у Python. Обчислюється лише вибрана частина, тому інший конструктор чи виклик тут не
-        // виконується.
-        return axis != 0 ? axis : Double.compare(left.getB(), right.getB()); // При однаковому a порівнюємо другу піввісь.
+import java.util.Comparator;
+// final class — від цього класу не можна успадковуватися.
+// implements — клас реалізує методи зазначеного інтерфейсу.
+public final class FunctionComparator implements Comparator<Function> {
+    // @Override — компілятор перевіряє, що метод перевизначає успадкований або реалізує інтерфейс.
+    @Override public int compare(Function left, Function right) {
+        // getClass().getSimpleName() — коротка назва фактичного класу.
+        int type = left.getClass().getSimpleName().compareTo(right.getClass().getSimpleName());
+        if (type != 0) return type;
+        // compare повертає знак порядку: від’ємне / 0 / додатне; його використовує сортування.
+        int axis = Double.compare(left.getA(), right.getA());
+        // умова ? a : b — вибір значення: a, якщо true, інакше b.
+        return axis != 0 ? axis : Double.compare(left.getB(), right.getB());
     }
 }
