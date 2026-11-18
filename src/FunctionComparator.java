@@ -1,9 +1,15 @@
 import java.util.Comparator;
+
 public final class FunctionComparator implements Comparator<Function> {
-    @Override public int compare(Function left, Function right) {
-        int type = left.getClass().getSimpleName().compareTo(right.getClass().getSimpleName());
-        if (type != 0) return type;
-        int axis = Double.compare(left.getA(), right.getA());
-        return axis != 0 ? axis : Double.compare(left.getB(), right.getB());
+    @Override
+    public int compare(Function left, Function right) {
+        String leftType = left.getClass().getSimpleName();
+        String rightType = right.getClass().getSimpleName();
+        int order = leftType.compareTo(rightType);
+
+        if (order == 0) {
+            return left.compareAxes(right);
+        }
+        return order;
     }
 }

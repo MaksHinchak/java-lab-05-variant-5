@@ -1,83 +1,122 @@
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.TreeSet;
+import java.util.function.BiFunction;
+
 public class Main {
-    public static ArrayList<Function> load(Path file, boolean ellipse) throws IOException {
-        ArrayList<Function> result = new ArrayList<>();
-        try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+    public static void main(String[] args) {
+        try {
+            int task = Input.integer("Завдання (1 - колекції функцій, 2 - множини): ", 1, 2);
+            if (task == 1) {
+                runCurves();
+            } else {
+                runSets();
+            }
+        } catch (IOException | IllegalArgumentException | IllegalStateException e) {
+            System.out.println("Помилка: " + e.getMessage());
+        }
+    }
+
+    private static void runCurves() throws IOException {
+        Path ellipseFile = Input.path("Файл еліпсів", "data/ellipses.txt");
+        ArrayList<Ellipse> ellipses = load(ellipseFile, Ellipse::new);
+        Path hyperbolaFile = Input.path("Файл гіпербол", "data/hyperbolas.txt");
+        ArrayList<Hyperbola> hyperbolas = load(hyperbolaFile, Hyperbola::new);
+        printLists("Прочитано", ellipses, hyperbolas);
+
+        Collections.sort(ellipses);
+        Collections.sort(hyperbolas);
+        printLists("Відсортовано", ellipses, hyperbolas);
+
+        ellipses.add(new Ellipse(Input.axis("Новий еліпс a: "), Input.axis("b: ")));
+        hyperbolas.add(new Hyperbola(Input.axis("Нова гіпербола a: "), Input.axis("b: ")));
+        Collections.sort(ellipses);
+        Collections.sort(hyperbolas);
+        printLists("Після додавання", ellipses, hyperbolas);
+
+        ArrayList<Function> all = new ArrayList<>(ellipses);
+        all.addAll(hyperbolas);
+        Collections.sort(all, new FunctionComparator());
+
+        System.out.println("Спільний список: " + all);
+        saveCurves(all);
+    }
+
+    private static void printLists(String title, ArrayList<Ellipse> ellipses,
+                                   ArrayList<Hyperbola> hyperbolas) {
+        System.out.println(title + ":");
+        System.out.println(ellipses);
+        System.out.println(hyperbolas);
+    }
+
+    private static <T extends Function> ArrayList<T> load(Path file, BiFunction<Double, Double, T> create)
+            throws IOException {
+        ArrayList<T> curves = new ArrayList<>();
+        try (BufferedReader reader = Files.newBufferedReader(file)) {
             String line;
-            int number = 0;
+            int lineNumber = 0;
             while ((line = reader.readLine()) != null) {
-                number++;
-                if (line.isBlank()) continue;
-                String[] parts = line.trim().split("\\s+");
-                if (parts.length != 2) throw new IOException("Рядок " + number + ": потрібно два числа a b.");
+                lineNumber++;
+                if (line.isBlank()) {
+                    continue;
+                }
+
+                String[] parts = line.strip().split("\\s+");
+                if (parts.length != 2) {
+                    throw new IOException(file + ", рядок " + lineNumber + ": потрібно два числа a b.");
+                }
+
                 try {
                     double a = Double.parseDouble(parts[0]);
                     double b = Double.parseDouble(parts[1]);
-                    result.add(ellipse ? new Ellipse(a, b) : new Hyperbola(a, b));
-                } catch (IllegalArgumentException e) { throw new IOException("Рядок " + number + ": " + e.getMessage(), e); }
+                    curves.add(create.apply(a, b));
+                } catch (IllegalArgumentException e) {
+                    throw new IOException(file + ", рядок " + lineNumber + ": " + e.getMessage(), e);
+                }
             }
         }
-        return result;
+        return curves;
     }
-    public static HashSet<Integer> union(HashSet<Integer> a, HashSet<Integer> b) {
-        HashSet<Integer> result = new HashSet<>(a);
-        result.addAll(b);
-        return result;
+
+    private static void saveCurves(ArrayList<Function> curves) throws IOException {
+        Path output = Input.path("Вихідний файл", "result.txt");
+        if (Files.exists(output) && !Input.text("Файл існує. Перезаписати? так/ні: ").equalsIgnoreCase("так")) {
+            System.out.println("Збереження скасовано.");
+            return;
+        }
+
+        try (BufferedWriter writer = Files.newBufferedWriter(output)) {
+            for (Function curve : curves) {
+                writer.write(curve.getClass().getSimpleName() + " " + curve.getA() + " " + curve.getB());
+                writer.newLine();
+            }
+        }
+        System.out.println("Збережено: " + output);
     }
+
+    private static void runSets() {
+        HashSet<Integer> a = Input.integerSet("Множина A (числа через пробіл): ");
+        HashSet<Integer> b = Input.integerSet("Множина B: ");
+
+        System.out.println("Перетин: " + new TreeSet<>(intersection(a, b)));
+        System.out.println("Об'єднання: " + new TreeSet<>(union(a, b)));
+    }
+
     public static HashSet<Integer> intersection(HashSet<Integer> a, HashSet<Integer> b) {
         HashSet<Integer> result = new HashSet<>(a);
         result.retainAll(b);
         return result;
     }
-    private static HashSet<Integer> set(String prompt) {
-        HashSet<Integer> result = new HashSet<>();
-        String line = Input.text(prompt).trim();
-        if (!line.isEmpty()) for (String part : line.split("\\s+")) result.add(Integer.parseInt(part));
+
+    public static HashSet<Integer> union(HashSet<Integer> a, HashSet<Integer> b) {
+        HashSet<Integer> result = new HashSet<>(a);
+        result.addAll(b);
         return result;
-    }
-    public static void main(String[] args) {
-        try {
-            int task = Input.integer("Завдання (1 - колекції функцій, 2 - множини): ", 1, 2);
-            if (task == 2) {
-                HashSet<Integer> a = set("Множина A (числа через пробіл): ");
-                HashSet<Integer> b = set("Множина B: ");
-                System.out.println("Перетин: " + new java.util.TreeSet<>(intersection(a, b)));
-                System.out.println("Об'єднання: " + new java.util.TreeSet<>(union(a, b)));
-                return;
-            }
-            ArrayList<Ellipse> ellipses = new ArrayList<>();
-            ArrayList<Hyperbola> hyperbolas = new ArrayList<>();
-            for (Function f : load(Path.of(Input.text("Файл еліпсів (data/ellipses.txt): ")), true)) ellipses.add((Ellipse) f);
-            for (Function f : load(Path.of(Input.text("Файл гіпербол (data/hyperbolas.txt): ")), false)) hyperbolas.add((Hyperbola) f);
-            System.out.println("Прочитано: " + ellipses + "\n" + hyperbolas);
-            Collections.sort(ellipses);
-            Collections.sort(hyperbolas);
-            System.out.println("Відсортовано: " + ellipses + "\n" + hyperbolas);
-            ellipses.add(new Ellipse(Input.real("Новий еліпс a: "), Input.real("b: ")));
-            hyperbolas.add(new Hyperbola(Input.real("Нова гіпербола a: "), Input.real("b: ")));
-            Collections.sort(ellipses);
-            Collections.sort(hyperbolas);
-            System.out.println("Після додавання: " + ellipses + "\n" + hyperbolas);
-            ArrayList<Function> all = new ArrayList<>(ellipses);
-            all.addAll(hyperbolas);
-            Collections.sort(all, new FunctionComparator());
-            Path output = Path.of(Input.text("Вихідний файл: "));
-            if (Files.exists(output) && !Input.text("Файл існує. Перезаписати? так/ні: ").equalsIgnoreCase("так")) return;
-            try (BufferedWriter writer = Files.newBufferedWriter(output, StandardCharsets.UTF_8)) {
-                for (Function f : all) {
-                    writer.write(f.getClass().getSimpleName() + " " + f.getA() + " " + f.getB());
-                    writer.newLine();
-                }
-            }
-            System.out.println("Спільний список: " + all + "\nЗбережено: " + output);
-        } catch (IOException | RuntimeException e) { System.out.println("Помилка: " + e.getMessage()); }
     }
 }
